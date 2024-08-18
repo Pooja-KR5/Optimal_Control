@@ -1,0 +1,73 @@
+%BVP vs Diff Riccati Equation for LQR
+
+
+clear all; close all; clc;
+%BVP
+N=100; %Number of Mesh points
+
+xmesh = linspace(0,1,N);
+solinit = bvpinit(xmesh, @guess);
+options = bvpset('Stats','on','RelTol',1e-3);
+
+sol = bvp4c(@bvpfcn, @bcfcn, solinit,options);
+
+x=sol.y(1,:);
+p=sol.y(2,:);
+t=sol.x;
+
+%RICCATI
+p1 = 0;
+tspan = linspace(1,0,N); % it will solve with a negative time step
+[tr,pr] = ode45(@(tr,pr) 2*pr+2*pr^2-0.5,tspan,p1);
+
+pr=flipud(pr);
+
+%Closed loop system 
+x0=5;
+xr(1)=x0;
+T=tspan(1)-tspan(2);
+for i=1:size(tspan,2)
+    u(i)=-(2*pr(i)*xr(i));
+    [tr,z] = ode45(@(tr,z) -z+u(i),[i*T,(i+1)*T],xr(i));
+    xr(i+1)=z(end);
+end
+
+
+%Plotting
+
+figure
+plot(t,x,'LineWidth',2,'LineStyle','-','Marker','*'); hold on; plot(fliplr(tspan),xr(1:end-1),'r','LineWidth',2,'LineStyle','-','Marker','*'); hold off;
+
+grid on
+title('x(t)','FontSize',15,'FontWeight','bold')
+xlabel('t(s)','FontSize',15,'FontWeight','bold')
+ylabel('x(t)','FontSize',15,'FontWeight','bold')
+set(gca,'FontSize',15)
+
+figure
+plot(t,p,'LineWidth',2,'LineStyle','-','Marker','*')
+grid on
+title('p(t)','FontSize',15,'FontWeight','bold')
+xlabel('t(s)','FontSize',15,'FontWeight','bold')
+ylabel('p(t)','FontSize',15,'FontWeight','bold')
+set(gca,'FontSize',15)
+
+%Function Defintions
+
+%Differential Equations
+function dxpdt = bvpfcn(t,x)
+dxpdt = [-x(1)-x(2);
+       -x(1)+x(2)];
+end
+
+%Boundary Conditions
+function res = bcfcn(xa,xb)
+res = [xa(1)-5;
+       xb(2)];
+end
+
+%Intial guess for x(t) and p(t)
+function g = guess(t)
+g = [5*exp(-2*t);
+     (1-t)^2/(1+t^2)];
+end
